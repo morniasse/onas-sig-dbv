@@ -10,19 +10,30 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
     <style>
-        #map { height: 400px; width: 100%; border-radius: 1rem; z-index: 1; }
-        .leaflet-routing-container { display: none; } /* Masquer le panneau texte par défaut pour plus de clarté */
-        
-        .gmaps-button {
-            background-color: #4285F4;
-            transition: all 0.3s ease;
+        #map { height: 450px; width: 100%; border-radius: 1rem; z-index: 1; }
+        .leaflet-routing-container {
+            background-color: white;
+            padding: 8px;
+            max-height: 180px;
+            overflow-y: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            font-size: 11px;
         }
-        .gmaps-button:hover { background-color: #3367D6; }
+        .pulse-button {
+            animation: pulse-blue 2s infinite;
+        }
+        @keyframes pulse-blue {
+            0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+        }
     </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-900">
 
     <div class="max-w-md mx-auto min-h-screen bg-white shadow-2xl flex flex-col">
+        <!-- Header -->
         <header class="bg-blue-700 p-6 text-white text-center rounded-b-[2rem] shadow-lg">
             <h1 class="text-2xl font-black tracking-tight">ONAS - SIG</h1>
             <p class="text-xs font-bold opacity-80 uppercase tracking-widest mt-1">Simulateur de Vidange</p>
@@ -30,70 +41,119 @@
         </header>
 
         <main class="p-5 space-y-5 flex-grow">
+            <!-- Info HTTPS -->
+            <div id="https-info" class="bg-emerald-50 border-2 border-emerald-200 p-3 rounded-xl">
+                <p class="text-[11px] text-emerald-800 leading-tight">
+                    <strong>✅ Version Déployée :</strong> Cette application est sécurisée via HTTPS. La géolocalisation par GPS est désormais opérationnelle.
+                </p>
+            </div>
+
+            <!-- Error Box -->
+            <div id="error-box" class="hidden bg-red-100 border-2 border-red-200 p-4 rounded-xl text-red-800">
+                <p class="font-bold text-sm">Position introuvable</p>
+                <p class="text-xs mt-1">Vérifiez vos paramètres Android : Paramètres > Confidentialité > Localisation (Autoriser le navigateur).</p>
+                <button onclick="location.reload()" class="mt-2 text-[10px] font-black uppercase underline">Réessayer</button>
+            </div>
+
+            <!-- Fosse Selection -->
             <section class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <h2 class="text-xs font-black text-slate-500 uppercase mb-3 flex items-center">
                     <span class="w-2 h-2 bg-blue-600 rounded-full mr-2"></span> Point de Collecte
                 </h2>
-                <button id="btn-gps" class="w-full bg-blue-600 active:scale-95 text-white font-bold py-4 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center space-x-3">
+                
+                <button id="btn-gps" class="w-full bg-blue-600 active:scale-95 text-white font-bold py-4 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center space-x-3 pulse-button">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                     <span>ACTIVER MON GPS</span>
                 </button>
+
                 <div class="grid grid-cols-2 gap-3 mt-4">
-                    <div class="bg-white p-2 rounded-lg border border-slate-200 text-center text-xs font-mono font-bold text-blue-700" id="lat-fosse">-</div>
-                    <div class="bg-white p-2 rounded-lg border border-slate-200 text-center text-xs font-mono font-bold text-blue-700" id="lng-fosse">-</div>
+                    <div class="bg-white p-2 rounded-lg border border-slate-200 text-center">
+                        <span class="block text-[8px] text-slate-400 uppercase font-bold">Latitude</span>
+                        <span id="lat-fosse" class="text-xs font-mono font-bold text-blue-700">-</span>
+                    </div>
+                    <div class="bg-white p-2 rounded-lg border border-slate-200 text-center">
+                        <span class="block text-[8px] text-slate-400 uppercase font-bold">Longitude</span>
+                        <span id="lng-fosse" class="text-xs font-mono font-bold text-blue-700">-</span>
+                    </div>
                 </div>
             </section>
 
+            <!-- STBV Selection -->
             <section class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <h2 class="text-xs font-black text-slate-500 uppercase mb-3 flex items-center">
                     <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Destination STBV
                 </h2>
-                <select id="select-stbv" class="w-full bg-white border-2 border-slate-200 rounded-xl p-3 text-sm font-bold outline-none shadow-sm">
+                <select id="select-stbv" class="w-full bg-white border-2 border-slate-200 rounded-xl p-3 text-sm font-bold focus:border-blue-500 outline-none appearance-none shadow-sm">
                     <option value="">-- Sélectionner Station --</option>
-                    <option value="14.7483416, -17.4292479">STBV Cambérène</option>
-                    <option value="14.7600957, -17.4040295">STBV Niayes</option>
-                    <option value="14.8249624, -17.2944925">STBV Tivaouane Peulh</option>
-                    <option value="14.721296, -17.2949321">STBV Rufisque</option> 
+                    <option value="14.747, -17.433">STBV Cambérène</option>
+                    <option value="14.780, -17.370">STBV Niayes</option>
+                    <option value="14.715, -17.460">STBV Hann</option>
+                    <option value="16.030, -16.480">STBV Saint-Louis</option>
+                    <option value="14.790, -16.920">STBV Thiès</option>
                 </select>
             </section>
 
-            <section id="route-container" class="hidden space-y-3">
-                <div class="bg-blue-900 p-4 rounded-2xl text-white shadow-xl flex justify-around text-center">
+            <!-- Route Summary -->
+            <section id="route-info" class="hidden bg-blue-900 p-5 rounded-2xl text-white shadow-xl">
+                <div class="flex justify-between items-center text-center">
                     <div>
-                        <p class="text-[9px] uppercase opacity-60">Distance</p>
-                        <p id="route-distance" class="text-lg font-black">-</p>
+                        <p class="text-[9px] uppercase font-bold opacity-60">Distance</p>
+                        <p id="route-distance" class="text-xl font-black">-</p>
                     </div>
                     <div class="h-8 w-px bg-white/20"></div>
                     <div>
-                        <p class="text-[9px] uppercase opacity-60">Temps</p>
-                        <p id="route-time" class="text-lg font-black">-</p>
+                        <p class="text-[9px] uppercase font-bold opacity-60">Temps</p>
+                        <p id="route-time" class="text-xl font-black">-</p>
                     </div>
                 </div>
-
-                <button id="btn-navigate" class="gmaps-button w-full text-white font-black py-4 px-4 rounded-xl shadow-lg flex items-center justify-center space-x-3 active:scale-95 transition-transform">
-                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                    <span class="uppercase tracking-wide">Se rendre à la déposante</span>
-                </button>
             </section>
 
-            <div id="map" class="shadow-xl border-4 border-white"></div>
+            <!-- Map -->
+            <div class="relative">
+                <div id="map" class="shadow-xl border-4 border-white"></div>
+                <div class="absolute top-3 right-3 z-[1000] bg-white/90 px-2 py-1 rounded text-[9px] font-bold text-slate-500 shadow">
+                    Cliquez pour placer manuellement
+                </div>
+            </div>
         </main>
 
-        <footer class="p-6 bg-slate-100 text-[10px] text-slate-400 text-center">
-            Support technique ONAS SIG <br> Navigation Intégrée v2.3
+        <footer class="p-6 bg-slate-100 text-[10px] text-slate-400 text-center leading-relaxed">
+            Support technique ONAS SIG <br> Version 2.2 (Déploiement Cloud)
         </footer>
     </div>
 
     <script>
-        document.getElementById('current-date').innerText = new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        // Initialisation de la date
+        document.getElementById('current-date').innerText = new Date().toLocaleDateString('fr-FR', { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        });
 
-        const map = L.map('map', { zoomControl: false }).setView([14.7167, -17.4677], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        // Configuration de la carte
+        const dakarPos = [14.7167, -17.4677];
+        const map = L.map('map', { zoomControl: false }).setView(dakarPos, 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-        let markerFosse = null, controlRouting = null, stbvPos = null;
+        let markerFosse = null;
+        let controlRouting = null;
+        let stbvPos = null;
 
-        const fosseIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3076/3076823.png', iconSize: [32, 32], iconAnchor: [16, 32] });
-        const stbvIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/4331/4331033.png', iconSize: [32, 32], iconAnchor: [16, 32] });
+        const fosseIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3076/3076823.png',
+            iconSize: [32, 32], iconAnchor: [16, 32]
+        });
+
+        const stbvIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/4331/4331033.png',
+            iconSize: [32, 32], iconAnchor: [16, 32]
+        });
+
+        function updateFosseCoords(latlng) {
+            document.getElementById('lat-fosse').innerText = latlng.lat.toFixed(6);
+            document.getElementById('lng-fosse').innerText = latlng.lng.toFixed(6);
+            document.getElementById('error-box').classList.add('hidden');
+        }
 
         function updateRoute() {
             if (!markerFosse || !stbvPos) return;
@@ -101,45 +161,68 @@
 
             controlRouting = L.Routing.control({
                 waypoints: [markerFosse.getLatLng(), L.latLng(stbvPos)],
-                createMarker: (i, wp) => L.marker(wp.latLng, { icon: i === 0 ? fosseIcon : stbvIcon, draggable: i === 0 }),
                 routeWhileDragging: false,
-                addWaypoints: false
+                language: 'fr',
+                createMarker: function(i, wp) {
+                    return L.marker(wp.latLng, { icon: i === 0 ? fosseIcon : stbvIcon, draggable: i === 0 });
+                }
             }).on('routesfound', function(e) {
-                const route = e.routes[0].summary;
-                document.getElementById('route-container').classList.remove('hidden');
-                document.getElementById('route-distance').innerText = (route.totalDistance / 1000).toFixed(1) + ' km';
-                document.getElementById('route-time').innerText = Math.round(route.totalTime / 60) + ' min';
-                
-                // Configurer le bouton Google Maps
-                const lat = stbvPos[0], lng = stbvPos[1];
-                document.getElementById('btn-navigate').onclick = () => {
-                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
-                };
+                const summary = e.routes[0].summary;
+                document.getElementById('route-info').classList.remove('hidden');
+                document.getElementById('route-distance').innerText = (summary.totalDistance / 1000).toFixed(1) + ' km';
+                document.getElementById('route-time').innerText = Math.round(summary.totalTime / 60) + ' min';
             }).addTo(map);
         }
 
-        function setFosse(latlng) {
-            if (!markerFosse) {
-                markerFosse = L.marker(latlng, { icon: fosseIcon, draggable: true }).addTo(map);
-                markerFosse.on('dragend', (e) => { setFosse(e.target.getLatLng()); });
-            } else {
-                markerFosse.setLatLng(latlng);
-            }
-            document.getElementById('lat-fosse').innerText = latlng.lat.toFixed(6);
-            document.getElementById('lng-fosse').innerText = latlng.lng.toFixed(6);
-            updateRoute();
-        }
+        // Action GPS
+        document.getElementById('btn-gps').addEventListener('click', () => {
+            document.getElementById('error-box').classList.add('hidden');
+            map.locate({ setView: true, maxZoom: 16, enableHighAccuracy: true });
+        });
 
-        document.getElementById('btn-gps').onclick = () => map.locate({ setView: true, maxZoom: 16 });
-        map.on('locationfound', (e) => setFosse(e.latlng));
-        map.on('click', (e) => setFosse(e.latlng));
-        document.getElementById('select-stbv').onchange = (e) => {
+        map.on('locationfound', (e) => {
+            if (!markerFosse) {
+                markerFosse = L.marker(e.latlng, { icon: fosseIcon, draggable: true }).addTo(map);
+                markerFosse.on('dragend', (ev) => {
+                    updateFosseCoords(ev.target.getLatLng());
+                    updateRoute();
+                });
+            } else {
+                markerFosse.setLatLng(e.latlng);
+            }
+            updateFosseCoords(e.latlng);
+            updateRoute();
+        });
+
+        map.on('locationerror', (e) => {
+            console.warn(e.message);
+            document.getElementById('error-box').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        map.on('click', (e) => {
+            if (!markerFosse) {
+                markerFosse = L.marker(e.latlng, { icon: fosseIcon, draggable: true }).addTo(map);
+                markerFosse.on('dragend', (ev) => {
+                    updateFosseCoords(ev.target.getLatLng());
+                    updateRoute();
+                });
+            } else {
+                markerFosse.setLatLng(e.latlng);
+            }
+            updateFosseCoords(e.latlng);
+            updateRoute();
+        });
+
+        document.getElementById('select-stbv').addEventListener('change', (e) => {
             if (e.target.value) {
                 stbvPos = e.target.value.split(',').map(Number);
                 updateRoute();
-                if (markerFosse) map.fitBounds(L.latLngBounds([markerFosse.getLatLng(), L.latLng(stbvPos)]), { padding: [50, 50] });
+                if (markerFosse) {
+                    map.fitBounds(L.latLngBounds([markerFosse.getLatLng(), L.latLng(stbvPos)]), { padding: [40, 40] });
+                }
             }
-        };
+        });
     </script>
 </body>
 </html>
